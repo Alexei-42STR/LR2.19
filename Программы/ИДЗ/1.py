@@ -1,60 +1,33 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import json
-import argparse
-from pathlib import Path
+import os
 
-# Получаем путь к домашнему каталогу пользователя
-home_dir = str(Path.home())
+def realname(path, root=None):
+    if root is not None:
+        path=os.path.join(root, path)
+    result=os.path.basename(path)
+    if os.path.islink(path):
+        realpath=os.readlink(path)
+        result= '%s -> %s' % (os.path.basename(path), realpath)
+    return result
 
-# Создаем путь к файлу данных в домашнем каталоге пользователя
-file_path = Path(home_dir) / "idz.json"
-
-# Функция для ввода данных о маршрутах
-def add_route(routes, start, end, number):
-    route = {
-        "start": start,
-        "end": end,
-        "number": number
-    }
-    routes.append(route)
-    return routes
-
-# Функция для вывода информации о маршруте по номеру
-def find_route(routes, number):
-    found = False
-    for route in routes:
-        if route["number"] == number:
-            print("Начальный пункт маршрута:", route["start"])
-            print("Конечный пункт маршрута:", route["end"])
-            found = True
-            break
-    if not found:
-        print("Маршрут с таким номером не найден.")
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Управление маршрутами')
-    parser.add_argument('--add', action='store_true', help='Добавить новый маршрут')
-    parser.add_argument('--number', type=str, help='Номер маршрута для поиска')
-
-    args = parser.parse_args()
-
-    try:
-        with open(file_path, "r") as file:
-            routes = json.load(file)
-    except FileNotFoundError:
-        routes = []
-
-    if args.add:
-        start = input("Введите начальный пункт маршрута: ")
-        end = input("Введите конечный пункт маршрута: ")
-        number = input("Введите номер маршрута: ")
-        routes = add_route(routes, start, end, number)
-
-    if args.number:
-        find_route(routes, args.number)
-
-    # Сохраняем данные в файл JSON после ввода информации
-    with open(file_path, "w") as file:
-        json.dump(routes, file)
+def ptree(startpath, depth=-1):
+    prefix=0
+    if startpath != '/':
+        if startpath.endswith('/'): startpath=startpath[:-1]
+        prefix=len(startpath)
+    for root, dirs, files in os.walk(startpath):
+        level = root[prefix:].count(os.sep)
+        if depth >-1 and level > depth: continue
+        indent=subindent =''
+        if level > 0:
+            indent = '|   ' * (level-1) + '|-- '
+        subindent = '|   ' * (level) + '|-- '
+        print('{}{}/'.format(indent, realname(root)))
+        # print dir only if symbolic link; otherwise, will be printed as root
+        for d in dirs:
+            if os.path.islink(os.path.join(root, d)):
+                print('{}{}'.format(subindent, realname(d, root=root)))
+        for f in files:
+            print('{}{}'.format(subindent, realname(f, root=root)))
